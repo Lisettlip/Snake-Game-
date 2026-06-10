@@ -1,378 +1,253 @@
-# Impordime pygame mooduli.
 import pygame
-
-# Impordime sys mooduli.
+import random
 import sys
 
-# Impordime random mooduli.
-import random
-
-# Impordime os mooduli.
-import os
-
-# Käivitame pygame'i.
 pygame.init()
 
-# Määrame akna laiuse.
-akna_laius = 720
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+GREEN = (0, 200, 0)
+RED = (220, 0, 0)
+YELLOW = (255, 255, 0)
 
-# Määrame akna kõrguse.
-akna_korgus = 480
+WIDTH = 800
+HEIGHT = 600
+BLOCK = 20
 
-# Määrame ühe ruudu suuruse.
-ruut = 20
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Snake Game")
 
-# Määrame mängu kiiruse.
-kiirus = 12
+clock = pygame.time.Clock()
 
-# Loome mänguakna.
-aken = pygame.display.set_mode((akna_laius, akna_korgus))
+font = pygame.font.SysFont("bahnschrift", 30)
+score_font = pygame.font.SysFont("comicsansms", 28)
 
-# Paneme aknale pealkirja.
-pygame.display.set_caption("Öine ussimäng")
 
-# Loome mängu kella.
-kell = pygame.time.Clock()
+class Position:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
 
-# Leiame programmi kausta.
-baaskaust = os.path.dirname(os.path.abspath(__file__))
 
-# Määrame piltide kausta.
-pildikaust = baaskaust
+def draw_text(text, color, x, y, font_type=font):
+    message = font_type.render(text, True, color)
+    screen.blit(message, (x, y))
 
-# Kui olemas on pildid kaust, siis kasutame seda.
-if os.path.exists(os.path.join(baaskaust, "pildid")):
-    # Määrame pildikaustaks pildid kausta.
-    pildikaust = os.path.join(baaskaust, "pildid")
 
-# Määrame tumesinise tausta.
-taust = pygame.Color(15, 25, 60)
+class Snake:
+    def __init__(self):
+        self.body = [
+            Position(WIDTH // 2, HEIGHT // 2),
+            Position(WIDTH // 2 - BLOCK, HEIGHT // 2),
+            Position(WIDTH // 2 - BLOCK * 2, HEIGHT // 2)
+        ]
 
-# Määrame paneeli värvi.
-paneel = pygame.Color(25, 40, 90)
+        self.x_change = BLOCK
+        self.y_change = 0
 
-# Määrame valge värvi.
-valge = pygame.Color(255, 255, 255)
+    def move(self):
+        head = self.body[0]
 
-# Määrame punase värvi.
-punane = pygame.Color(220, 50, 50)
+        new_head = Position(
+            head.x + self.x_change,
+            head.y + self.y_change
+        )
+
+        self.body.insert(0, new_head)
+        self.body.pop()
+
+    def grow(self):
+        head = self.body[0]
+
+        new_head = Position(
+            head.x + self.x_change,
+            head.y + self.y_change
+        )
+
+        self.body.insert(0, new_head)
+
+    def draw(self):
+        for part in self.body:
+            pygame.draw.rect(
+                screen,
+                GREEN,
+                [part.x, part.y, BLOCK, BLOCK]
+            )
+
+    def score(self):
+        return len(self.body) - 3
 
-# Määrame rohelise värvi.
-roheline = pygame.Color(0, 200, 80)
+    def hit_wall(self):
+        head = self.body[0]
 
-# Määrame musta värvi.
-must = pygame.Color(0, 0, 0)
+        return (
+            head.x < 0 or
+            head.x >= WIDTH or
+            head.y < 0 or
+            head.y >= HEIGHT
+        )
 
-# Loome väikese fondi.
-font_vaike = pygame.font.SysFont("consolas", 24)
+    def hit_self(self):
+        head = self.body[0]
 
-# Loome suure fondi.
-font_suur = pygame.font.SysFont("arial", 55)
+        for part in self.body[1:]:
+            if head.x == part.x and head.y == part.y:
+                return True
 
+        return False
 
-# Loome pildi laadimise funktsiooni.
-def lae_pilt(failinimi):
-    # Loome pildi täieliku failitee.
-    failitee = os.path.join(pildikaust, failinimi)
 
-    # Kontrollime, kas pilt on olemas.
-    if not os.path.exists(failitee):
-        # Kuvame puuduva pildi nime.
-        print("Puudub pilt:", failitee)
+class Food:
+    def __init__(self):
+        self.position = Position(0, 0)
+        self.randomize([])
 
-        # Sulgeme pygame'i.
-        pygame.quit()
+    def randomize(self, snake_body):
+        while True:
+            self.position.x = random.randrange(0, WIDTH - BLOCK, BLOCK)
+            self.position.y = random.randrange(0, HEIGHT - BLOCK, BLOCK)
+
+            food_on_snake = False
+
+            for part in snake_body:
+                if self.position.x == part.x and self.position.y == part.y:
+                    food_on_snake = True
+
+            if not food_on_snake:
+                break
+
+    def draw(self):
+        pygame.draw.rect(
+            screen,
+            RED,
+            [self.position.x, self.position.y, BLOCK, BLOCK]
+        )
+
+
+class Game:
+    def __init__(self):
+        self.snake = Snake()
+        self.food = Food()
+        self.game_over = False
+        self.speed = 10
+        self.high_score = 0
+
+    def reset(self):
+        self.snake = Snake()
+        self.food = Food()
+        self.game_over = False
+        self.speed = 10
+
+    def draw_score(self):
+        draw_text(
+            "Score: " + str(self.snake.score()),
+            WHITE,
+            10,
+            10,
+            score_font
+        )
+
+        draw_text(
+            "High Score: " + str(self.high_score),
+            YELLOW,
+            10,
+            45,
+            score_font
+        )
+
+    def check_food_collision(self):
+        head = self.snake.body[0]
+
+        if head.x == self.food.position.x and head.y == self.food.position.y:
+            self.snake.grow()
+            self.food.randomize(self.snake.body)
+
+            if self.snake.score() > self.high_score:
+                self.high_score = self.snake.score()
+
+    def check_game_over(self):
+        if self.snake.hit_wall() or self.snake.hit_self():
+            self.game_over = True
+
+    def game_over_screen(self):
+        screen.fill(BLACK)
+
+        draw_text("GAME OVER", RED, WIDTH // 2 - 110, HEIGHT // 2 - 100)
+        draw_text("Score: " + str(self.snake.score()), WHITE, WIDTH // 2 - 70, HEIGHT // 2 - 50)
+        draw_text("High Score: " + str(self.high_score), YELLOW, WIDTH // 2 - 100, HEIGHT // 2)
+
+        draw_text("Press C to play again", WHITE, WIDTH // 2 - 140, HEIGHT // 2 + 60)
+        draw_text("Press Q to quit", WHITE, WIDTH // 2 - 100, HEIGHT // 2 + 100)
 
-        # Sulgeme programmi.
-        sys.exit()
-
-    # Laeme pildi.
-    pilt = pygame.image.load(failitee).convert_alpha()
-
-    # Muudame pildi suurust.
-    pilt = pygame.transform.scale(pilt, (ruut, ruut))
-
-    # Tagastame pildi.
-    return pilt
-
-
-# Laeme õuna pildi.
-ouna_pilt = lae_pilt("apple.png")
-
-# Laeme maasika pildi.
-maasika_pilt = lae_pilt("strawberry-png-22943.png")
-
-# Laeme kivi pildi.
-kivi_pilt = lae_pilt("kivi.jpg")
-
-
-# Loome teksti kuvamise funktsiooni.
-def kuva_tekst(tekst, font, varv, x, y):
-    # Loome teksti pildi.
-    tekstipilt = font.render(tekst, True, varv)
-
-    # Kuvame teksti aknas.
-    aken.blit(tekstipilt, (x, y))
-
-
-# Loome juhusliku koha leidmise funktsiooni.
-def juhuslik_koht(keelatud):
-    # Otsime sobivat kohta.
-    while True:
-        # Loome juhusliku x-koordinaadi.
-        x = random.randrange(0, akna_laius, ruut)
-
-        # Loome juhusliku y-koordinaadi.
-        y = random.randrange(40, akna_korgus, ruut)
-
-        # Paneme koha listi.
-        koht = [x, y]
-
-        # Kontrollime, kas koht on vaba.
-        if koht not in keelatud:
-            # Tagastame vaba koha.
-            return koht
-
-
-# Loome mängu algandmete funktsiooni.
-def alusta_mang():
-    # Loome ussi keha.
-    uss = [[100, 60], [80, 60], [60, 60]]
-
-    # Loome ussi pea.
-    ussi_pea = [100, 60]
-
-    # Määrame algsuuna.
-    suund = "PAREM"
-
-    # Määrame soovitud suuna.
-    uus_suund = "PAREM"
-
-    # Määrame skoori.
-    skoor = 0
-
-    # Loome õuna.
-    oun = juhuslik_koht(uss)
-
-    # Alguses maasikat ei ole.
-    maasikas = None
-
-    # Loome tühja kivide listi.
-    kivid = []
-
-    # Loome viis kivi.
-    for i in range(5):
-        # Lisame ühe kivi vabale kohale.
-        kivid.append(juhuslik_koht(uss + [oun] + kivid))
-
-    # Tagastame mängu algandmed.
-    return uss, ussi_pea, suund, uus_suund, skoor, oun, maasikas, kivid
-
-
-# Loome mängu algandmed.
-uss, ussi_pea, suund, uus_suund, skoor, oun, maasikas, kivid = alusta_mang()
-
-# Määrame, et mäng ei ole läbi.
-mang_labi = False
-
-# Käivitame mängutsükli.
-while True:
-    # Loeme kõik sündmused.
-    for event in pygame.event.get():
-        # Kontrollime akna sulgemist.
-        if event.type == pygame.QUIT:
-            # Sulgeme pygame'i.
-            pygame.quit()
-
-            # Sulgeme programmi.
-            sys.exit()
-
-        # Kontrollime klahvivajutusi.
-        if event.type == pygame.KEYDOWN:
-            # Kontrollime üles liikumist.
-            if event.key == pygame.K_UP or event.key == pygame.K_w:
-                # Muudame suuna üles.
-                uus_suund = "ULES"
-
-            # Kontrollime alla liikumist.
-            if event.key == pygame.K_DOWN or event.key == pygame.K_s:
-                # Muudame suuna alla.
-                uus_suund = "ALLA"
-
-            # Kontrollime vasakule liikumist.
-            if event.key == pygame.K_LEFT or event.key == pygame.K_a:
-                # Muudame suuna vasakule.
-                uus_suund = "VASAK"
-
-            # Kontrollime paremale liikumist.
-            if event.key == pygame.K_RIGHT or event.key == pygame.K_d:
-                # Muudame suuna paremale.
-                uus_suund = "PAREM"
-
-            # Kontrollime väljumist.
-            if event.key == pygame.K_ESCAPE:
-                # Sulgeme pygame'i.
-                pygame.quit()
-
-                # Sulgeme programmi.
-                sys.exit()
-
-            # Kontrollime uut mängu.
-            if mang_labi and event.key == pygame.K_r:
-                # Alustame mängu uuesti.
-                uss, ussi_pea, suund, uus_suund, skoor, oun, maasikas, kivid = alusta_mang()
-
-                # Määrame, et mäng ei ole läbi.
-                mang_labi = False
-
-    # Kui mäng on läbi.
-    if mang_labi:
-        # Täidame akna taustavärviga.
-        aken.fill(taust)
-
-        # Kuvame mängu lõpu teksti.
-        kuva_tekst("MÄNG LÄBI", font_suur, punane, 220, 160)
-
-        # Kuvame lõppskoori.
-        kuva_tekst("Skoor: " + str(skoor), font_vaike, valge, 300, 240)
-
-        # Kuvame uuesti alustamise juhise.
-        kuva_tekst("R - uuesti   ESC - välju", font_vaike, valge, 220, 290)
-
-        # Uuendame ekraani.
         pygame.display.update()
 
-        # Jätame ülejäänud tsükli vahele.
-        continue
+        waiting = True
 
-    # Kontrollime, et uss ei läheks kohe vastassuunda.
-    if uus_suund == "ULES" and suund != "ALLA":
-        # Muudame suuna üles.
-        suund = "ULES"
+        while waiting:
+            for event in pygame.event.get():
 
-    # Kontrollime, et uss ei läheks kohe vastassuunda.
-    if uus_suund == "ALLA" and suund != "ULES":
-        # Muudame suuna alla.
-        suund = "ALLA"
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
 
-    # Kontrollime, et uss ei läheks kohe vastassuunda.
-    if uus_suund == "VASAK" and suund != "PAREM":
-        # Muudame suuna vasakule.
-        suund = "VASAK"
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_c:
+                        self.reset()
+                        waiting = False
 
-    # Kontrollime, et uss ei läheks kohe vastassuunda.
-    if uus_suund == "PAREM" and suund != "VASAK":
-        # Muudame suuna paremale.
-        suund = "PAREM"
+                    elif event.key == pygame.K_q:
+                        pygame.quit()
+                        sys.exit()
 
-    # Kui suund on üles.
-    if suund == "ULES":
-        # Liigutame pead üles.
-        ussi_pea[1] -= ruut
+    def handle_keys(self, event):
+        if event.key == pygame.K_LEFT:
+            if self.snake.x_change != BLOCK:
+                self.snake.x_change = -BLOCK
+                self.snake.y_change = 0
 
-    # Kui suund on alla.
-    if suund == "ALLA":
-        # Liigutame pead alla.
-        ussi_pea[1] += ruut
+        elif event.key == pygame.K_RIGHT:
+            if self.snake.x_change != -BLOCK:
+                self.snake.x_change = BLOCK
+                self.snake.y_change = 0
 
-    # Kui suund on vasak.
-    if suund == "VASAK":
-        # Liigutame pead vasakule.
-        ussi_pea[0] -= ruut
+        elif event.key == pygame.K_UP:
+            if self.snake.y_change != BLOCK:
+                self.snake.y_change = -BLOCK
+                self.snake.x_change = 0
 
-    # Kui suund on parem.
-    if suund == "PAREM":
-        # Liigutame pead paremale.
-        ussi_pea[0] += ruut
+        elif event.key == pygame.K_DOWN:
+            if self.snake.y_change != -BLOCK:
+                self.snake.y_change = BLOCK
+                self.snake.x_change = 0
 
-    # Lisame uue pea ussi ette.
-    uss.insert(0, list(ussi_pea))
+    def run(self):
+        while True:
 
-    # Kontrollime, kas uss sõi õuna.
-    if ussi_pea == oun:
-        # Lisame punkte.
-        skoor += 10
+            while self.game_over:
+                self.game_over_screen()
 
-        # Loome uue õuna.
-        oun = juhuslik_koht(uss + kivid)
+            for event in pygame.event.get():
 
-        # Kui skoor jagub 30-ga.
-        if skoor % 30 == 0:
-            # Loome maasika.
-            maasikas = juhuslik_koht(uss + kivid + [oun])
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
 
-    # Kontrollime, kas uss sõi maasika.
-    elif maasikas is not None and ussi_pea == maasikas:
-        # Lisame rohkem punkte.
-        skoor += 30
+                if event.type == pygame.KEYDOWN:
+                    self.handle_keys(event)
 
-        # Eemaldame maasika.
-        maasikas = None
+            screen.fill(BLACK)
 
-    # Kui uss ei söönud midagi.
-    else:
-        # Eemaldame saba.
-        uss.pop()
+            self.food.draw()
+            self.snake.move()
+            self.snake.draw()
+            self.draw_score()
 
-    # Kontrollime vasakut ja paremat seina.
-    if ussi_pea[0] < 0 or ussi_pea[0] > akna_laius - ruut:
-        # Mäng saab läbi.
-        mang_labi = True
+            self.check_food_collision()
+            self.check_game_over()
 
-    # Kontrollime ülemist ja alumist seina.
-    if ussi_pea[1] < 40 or ussi_pea[1] > akna_korgus - ruut:
-        # Mäng saab läbi.
-        mang_labi = True
+            pygame.display.update()
+            clock.tick(self.speed)
 
-    # Käime läbi ussi keha.
-    for kehaosa in uss[1:]:
-        # Kontrollime, kas pea puudutab keha.
-        if ussi_pea == kehaosa:
-            # Mäng saab läbi.
-            mang_labi = True
 
-    # Käime läbi kõik kivid.
-    for kivi in kivid:
-        # Kontrollime, kas pea puudutab kivi.
-        if ussi_pea == kivi:
-            # Mäng saab läbi.
-            mang_labi = True
-
-    # Täidame tausta tumesinisega.
-    aken.fill(taust)
-
-    # Joonistame ülemise paneeli.
-    pygame.draw.rect(aken, paneel, pygame.Rect(0, 0, akna_laius, 40))
-
-    # Kuvame skoori.
-    kuva_tekst("Skoor: " + str(skoor), font_vaike, valge, 15, 8)
-
-    # Kuvame juhise.
-    kuva_tekst("WASD/nooled | R pärast lõppu | ESC", font_vaike, valge, 260, 8)
-
-    # Joonistame õuna.
-    aken.blit(ouna_pilt, (oun[0], oun[1]))
-
-    # Kontrollime, kas maasikas on olemas.
-    if maasikas is not None:
-        # Joonistame maasika.
-        aken.blit(maasika_pilt, (maasikas[0], maasikas[1]))
-
-    # Käime läbi kõik kivid.
-    for kivi in kivid:
-        # Joonistame kivi.
-        aken.blit(kivi_pilt, (kivi[0], kivi[1]))
-
-    # Käime läbi kõik ussi osad.
-    for osa in uss:
-        # Joonistame ussi lihtsa rohelise ruuduna.
-        pygame.draw.rect(aken, roheline, pygame.Rect(osa[0], osa[1], ruut, ruut))
-
-        # Joonistame ussi osale musta ääre.
-        pygame.draw.rect(aken, must, pygame.Rect(osa[0], osa[1], ruut, ruut), 1)
-
-    # Uuendame ekraani.
-    pygame.display.update()
-
-    # Hoiame mängu kiirust.
-    kell.tick(kiirus)
+game = Game()
+game.run()
